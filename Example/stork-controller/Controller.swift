@@ -30,9 +30,33 @@ class Controller: UIViewController {
         let transitionDelegate = SPStorkTransitioningDelegate()
         transitionDelegate.storkDelegate = self
         transitionDelegate.confirmDelegate = modal
+        transitionDelegate.customHeight = 450
         modal.transitioningDelegate = transitionDelegate
         modal.modalPresentationStyle = .custom
         self.present(modal, animated: true, completion: nil)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            let second = ModalViewController()
+            let transitionDelegate = SPStorkTransitioningDelegate()
+            transitionDelegate.storkDelegate = self
+            transitionDelegate.confirmDelegate = second
+            transitionDelegate.customHeight = 350
+            second.transitioningDelegate = transitionDelegate
+            second.modalPresentationStyle = .custom
+            modal.present(second, animated: true, completion: nil)
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                let third = ModalViewController()
+                let transitionDelegate = SPStorkTransitioningDelegate()
+                transitionDelegate.storkDelegate = self
+                transitionDelegate.confirmDelegate = second
+                transitionDelegate.customHeight = 250
+                third.transitioningDelegate = transitionDelegate
+                third.modalPresentationStyle = .custom
+                second.present(third, animated: true, completion: nil)
+            }
+        }
+        
     }
     
     @objc func presentModalTableViewController() {

@@ -45,6 +45,7 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
     private var gradeView: UIView = UIView()
     private let snapshotViewContainer = UIView()
     private var snapshotView: UIView?
+    private var oldSnapshotView: UIView?
     private let backgroundView = UIView()
     
     private var snapshotViewTopConstraint: NSLayoutConstraint?
@@ -55,6 +56,7 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
     private var workGester: Bool = false
     private var startDismissing: Bool = false
     private var afterReleaseDismissing: Bool = false
+    private var secondPresentedAsStork: Bool = false
     
     private var topSpace: CGFloat {
         let statusBarHeight: CGFloat = UIApplication.shared.statusBarFrame.height
@@ -127,7 +129,7 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
         }
         self.updateLayoutCloseButton()
         
-        let initialFrame: CGRect = presentingViewController.isPresentedAsStork ? presentingViewController.view.frame : containerView.bounds
+        let initialFrame: CGRect = containerView.bounds
         
         containerView.insertSubview(self.snapshotViewContainer, belowSubview: presentedViewController.view)
         self.snapshotViewContainer.frame = initialFrame
@@ -141,7 +143,7 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
             self.backgroundView.leftAnchor.constraint(equalTo: window.leftAnchor),
             self.backgroundView.rightAnchor.constraint(equalTo: window.rightAnchor),
             self.backgroundView.bottomAnchor.constraint(equalTo: window.bottomAnchor)
-        ])
+            ])
         
         let transformForSnapshotView = CGAffineTransform.identity
             .translatedBy(x: 0, y: -snapshotViewContainer.frame.origin.y)
@@ -169,7 +171,7 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
             snapshotView.transform = transformForSnapshotView
             snapshotView.alpha = 1 - self.alpha
             snapshotView.layer.cornerRadius = self.cornerRadius
-            snapshotView.contentMode = .top
+            snapshotView.contentMode = .bottom
             snapshotView.layer.masksToBounds = true
             rootSnapshotView = snapshotView
             
@@ -228,7 +230,7 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
         guard let containerView = containerView else { return }
         self.startDismissing = true
         
-        let initialFrame: CGRect = presentingViewController.isPresentedAsStork ? presentingViewController.view.frame : containerView.bounds
+        let initialFrame: CGRect = containerView.bounds
         
         let initialTransform = CGAffineTransform.identity
             .translatedBy(x: 0, y: -initialFrame.origin.y)
@@ -258,7 +260,7 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
             containerView.insertSubview(snapshotView, aboveSubview: backgroundView)
             snapshotView.frame = initialFrame
             snapshotView.transform = initialTransform
-            snapshotView.contentMode = .top
+            snapshotView.contentMode = .bottom
             rootSnapshotView = snapshotView
             snapshotView.layer.cornerRadius = self.cornerRadius
             snapshotView.layer.masksToBounds = true
@@ -520,19 +522,36 @@ extension SPStorkPresentationController {
     }
     
     private func updateSnapshot() {
-        guard let currentSnapshotView = presentingViewController.view.snapshotView(afterScreenUpdates: true) else { return }
+        var currentSnapshotView: UIView
+        if presentingViewController.isPresentedAsStork {
+            if !secondPresentedAsStork {
+                guard let snapshotView = UIApplication.shared.keyWindow?.snapshotView(afterScreenUpdates: true) else { return }
+                currentSnapshotView = snapshotView
+                oldSnapshotView = currentSnapshotView
+                secondPresentedAsStork = true
+            }
+            else {
+                guard let snapshotView = oldSnapshotView else { return }
+                currentSnapshotView = snapshotView
+            }
+        } else {
+            guard let snapshotView = presentingViewController.view.snapshotView(afterScreenUpdates: true) else { return }
+            currentSnapshotView = snapshotView
+        }
+        
         self.snapshotView?.removeFromSuperview()
         self.snapshotViewContainer.addSubview(currentSnapshotView)
         self.constraints(view: currentSnapshotView, to: self.snapshotViewContainer)
         self.snapshotView = currentSnapshotView
         self.snapshotView?.layer.cornerRadius = self.cornerRadius
         self.snapshotView?.layer.masksToBounds = true
+        
         if #available(iOS 11.0, *) {
             snapshotView?.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         }
         self.gradeView.removeFromSuperview()
         self.gradeView.backgroundColor = UIColor.black
-        self.snapshotView!.addSubview(self.gradeView)
+        self.snapshotView?.addSubview(self.gradeView)
         self.constraints(view: self.gradeView, to: self.snapshotView!)
     }
     
@@ -543,7 +562,7 @@ extension SPStorkPresentationController {
         self.snapshotViewWidthConstraint?.isActive = false
         self.snapshotViewAspectRatioConstraint?.isActive = false
         
-        let snapshotReferenceSize = presentingViewController.view.frame.size
+        let snapshotReferenceSize = containerView.bounds
         let aspectRatio = snapshotReferenceSize.width / snapshotReferenceSize.height
         
         self.snapshotViewTopConstraint = snapshotViewContainer.topAnchor.constraint(equalTo: containerView.topAnchor, constant: self.topSpace)
@@ -562,7 +581,7 @@ extension SPStorkPresentationController {
             view.leftAnchor.constraint(equalTo: superView.leftAnchor),
             view.rightAnchor.constraint(equalTo: superView.rightAnchor),
             view.bottomAnchor.constraint(equalTo: superView.bottomAnchor)
-        ])
+            ])
     }
     
     private func addCornerRadiusAnimation(for view: UIView?, cornerRadius: CGFloat, duration: CFTimeInterval) {
