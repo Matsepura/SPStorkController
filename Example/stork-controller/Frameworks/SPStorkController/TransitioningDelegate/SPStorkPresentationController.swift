@@ -163,37 +163,48 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
         var rootSnapshotView: UIView?
         var rootSnapshotRoundedView: UIView?
         
-        if presentingViewController.isPresentedAsStork {
+        if !secondPresentedAsStork {
+            if presentingViewController.isPresentedAsStork {
+                guard let rootController = presentingViewController.presentingViewController, let snapshotView = rootController.view.snapshotView(afterScreenUpdates: false) else { return }
+                
+                containerView.insertSubview(snapshotView, aboveSubview: self.backgroundView)
+                snapshotView.frame = initialFrame
+                snapshotView.transform = transformForSnapshotView
+                snapshotView.alpha = 1 - self.alpha
+                snapshotView.layer.cornerRadius = self.cornerRadius
+                snapshotView.contentMode = .bottom
+                snapshotView.layer.masksToBounds = true
+                rootSnapshotView = snapshotView
+                
+                let snapshotRoundedView = UIView()
+                snapshotRoundedView.layer.cornerRadius = self.cornerRadius
+                snapshotRoundedView.layer.masksToBounds = true
+                containerView.insertSubview(snapshotRoundedView, aboveSubview: snapshotView)
+                snapshotRoundedView.frame = initialFrame
+                snapshotRoundedView.transform = transformForSnapshotView
+                rootSnapshotRoundedView = snapshotRoundedView
+            }
+            
+            presentedViewController.transitionCoordinator?.animate(
+                alongsideTransition: { [weak self] context in
+                    guard let `self` = self else { return }
+                    self.snapshotView?.transform = transformForSnapshotView
+                    self.gradeView.alpha = self.alpha
+                }, completion: { _ in
+                    self.snapshotView?.transform = .identity
+                    rootSnapshotView?.removeFromSuperview()
+                    rootSnapshotRoundedView?.removeFromSuperview()
+            })
+        } else {
             guard let rootController = presentingViewController.presentingViewController, let snapshotView = rootController.view.snapshotView(afterScreenUpdates: false) else { return }
-            
-            containerView.insertSubview(snapshotView, aboveSubview: self.backgroundView)
-            snapshotView.frame = initialFrame
-            snapshotView.transform = transformForSnapshotView
             snapshotView.alpha = 1 - self.alpha
-            snapshotView.layer.cornerRadius = self.cornerRadius
-            snapshotView.contentMode = .bottom
-            snapshotView.layer.masksToBounds = true
             rootSnapshotView = snapshotView
-            
-            let snapshotRoundedView = UIView()
-            snapshotRoundedView.layer.cornerRadius = self.cornerRadius
-            snapshotRoundedView.layer.masksToBounds = true
-            containerView.insertSubview(snapshotRoundedView, aboveSubview: snapshotView)
-            snapshotRoundedView.frame = initialFrame
-            snapshotRoundedView.transform = transformForSnapshotView
-            rootSnapshotRoundedView = snapshotRoundedView
+            presentedViewController.transitionCoordinator?.animate(
+                alongsideTransition: { [weak self] context in
+                    guard let `self` = self else { return }
+                    self.gradeView.alpha = self.alpha
+                })
         }
-        
-        presentedViewController.transitionCoordinator?.animate(
-            alongsideTransition: { [weak self] context in
-                guard let `self` = self else { return }
-                self.snapshotView?.transform = transformForSnapshotView
-                self.gradeView.alpha = self.alpha
-            }, completion: { _ in
-                self.snapshotView?.transform = .identity
-                rootSnapshotView?.removeFromSuperview()
-                rootSnapshotRoundedView?.removeFromSuperview()
-        })
         
         if self.hapticMoments.contains(.willPresent) {
             self.feedbackGenerator.impactOccurred()
@@ -203,12 +214,15 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
     override func presentationTransitionDidEnd(_ completed: Bool) {
         super.presentationTransitionDidEnd(completed)
         guard let containerView = containerView else { return }
+        
         self.updateSnapshot()
-        self.presentedViewController.view.frame = self.frameOfPresentedViewInContainerView
-        self.snapshotViewContainer.transform = .identity
-        self.snapshotViewContainer.translatesAutoresizingMaskIntoConstraints = false
-        self.snapshotViewContainer.centerXAnchor.constraint(equalTo: containerView.centerXAnchor).isActive = true
-        self.updateSnapshotAspectRatio()
+        if !secondPresentedAsStork {
+            self.presentedViewController.view.frame = self.frameOfPresentedViewInContainerView
+            self.snapshotViewContainer.transform = .identity
+            self.snapshotViewContainer.translatesAutoresizingMaskIntoConstraints = false
+            self.snapshotViewContainer.centerXAnchor.constraint(equalTo: containerView.centerXAnchor).isActive = true
+            self.updateSnapshotAspectRatio()
+        }
         
         if self.tapAroundToDismissEnabled {
             self.tap = UITapGestureRecognizer.init(target: self, action: #selector(self.tapArround))
@@ -229,7 +243,7 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
         super.dismissalTransitionWillBegin()
         guard let containerView = containerView else { return }
         self.startDismissing = true
-        
+        if !secondPresentedAsStork {
         let initialFrame: CGRect = containerView.bounds
         
         let initialTransform = CGAffineTransform.identity
@@ -254,40 +268,51 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
         var rootSnapshotView: UIView?
         var rootSnapshotRoundedView: UIView?
         
-        if presentingViewController.isPresentedAsStork {
-            guard let rootController = presentingViewController.presentingViewController, let snapshotView = rootController.view.snapshotView(afterScreenUpdates: false) else { return }
-            
-            containerView.insertSubview(snapshotView, aboveSubview: backgroundView)
-            snapshotView.frame = initialFrame
-            snapshotView.transform = initialTransform
-            snapshotView.contentMode = .bottom
-            rootSnapshotView = snapshotView
-            snapshotView.layer.cornerRadius = self.cornerRadius
-            snapshotView.layer.masksToBounds = true
-            
-            let snapshotRoundedView = UIView()
-            snapshotRoundedView.layer.cornerRadius = self.cornerRadius
-            snapshotRoundedView.layer.masksToBounds = true
-            snapshotRoundedView.backgroundColor = UIColor.black.withAlphaComponent(self.alpha)
-            containerView.insertSubview(snapshotRoundedView, aboveSubview: snapshotView)
-            snapshotRoundedView.frame = initialFrame
-            snapshotRoundedView.transform = initialTransform
-            rootSnapshotRoundedView = snapshotRoundedView
-        }
         
-        presentedViewController.transitionCoordinator?.animate(
-            alongsideTransition: { [weak self] context in
-                guard let `self` = self else { return }
-                self.snapshotView?.transform = .identity
-                self.snapshotViewContainer.transform = finalTransform
-                self.gradeView.alpha = 0
-                if self.hapticMoments.contains(.willDismiss) {
-                    self.feedbackGenerator.impactOccurred()
-                }
-            }, completion: { _ in
-                rootSnapshotView?.removeFromSuperview()
-                rootSnapshotRoundedView?.removeFromSuperview()
-        })
+            if presentingViewController.isPresentedAsStork {
+                guard let rootController = presentingViewController.presentingViewController, let snapshotView = rootController.view.snapshotView(afterScreenUpdates: false) else { return }
+                
+                containerView.insertSubview(snapshotView, aboveSubview: backgroundView)
+                snapshotView.frame = initialFrame
+                snapshotView.transform = initialTransform
+                snapshotView.contentMode = .bottom
+                rootSnapshotView = snapshotView
+                snapshotView.layer.cornerRadius = self.cornerRadius
+                snapshotView.layer.masksToBounds = true
+                
+                let snapshotRoundedView = UIView()
+                snapshotRoundedView.layer.cornerRadius = self.cornerRadius
+                snapshotRoundedView.layer.masksToBounds = true
+                snapshotRoundedView.backgroundColor = UIColor.black.withAlphaComponent(self.alpha)
+                containerView.insertSubview(snapshotRoundedView, aboveSubview: snapshotView)
+                snapshotRoundedView.frame = initialFrame
+                snapshotRoundedView.transform = initialTransform
+                rootSnapshotRoundedView = snapshotRoundedView
+            }
+            
+            presentedViewController.transitionCoordinator?.animate(
+                alongsideTransition: { [weak self] context in
+                    guard let `self` = self else { return }
+                    self.snapshotView?.transform = .identity
+                    self.snapshotViewContainer.transform = finalTransform
+                    self.gradeView.alpha = 0
+                    if self.hapticMoments.contains(.willDismiss) {
+                        self.feedbackGenerator.impactOccurred()
+                    }
+                }, completion: { _ in
+                    rootSnapshotView?.removeFromSuperview()
+                    rootSnapshotRoundedView?.removeFromSuperview()
+            })
+        } else {
+            presentedViewController.transitionCoordinator?.animate(
+                alongsideTransition: { [weak self] context in
+                    guard let `self` = self else { return }
+                    self.gradeView.alpha = 0
+                    if self.hapticMoments.contains(.willDismiss) {
+                        self.feedbackGenerator.impactOccurred()
+                    }
+                })
+        }
     }
     
     override func dismissalTransitionDidEnd(_ completed: Bool) {
@@ -300,9 +325,11 @@ class SPStorkPresentationController: UIPresentationController, UIGestureRecogniz
         self.indicatorView.removeFromSuperview()
         self.closeButton.removeFromSuperview()
         
-        let offscreenFrame = CGRect(x: 0, y: containerView.bounds.height, width: containerView.bounds.width, height: containerView.bounds.height)
-        presentedViewController.view.frame = offscreenFrame
-        presentedViewController.view.transform = .identity
+        if !secondPresentedAsStork {
+            let offscreenFrame = CGRect(x: 0, y: containerView.bounds.height, width: containerView.bounds.width, height: containerView.bounds.height)
+            presentedViewController.view.frame = offscreenFrame
+            presentedViewController.view.transform = .identity
+        }
     }
 }
 
@@ -466,10 +493,12 @@ extension SPStorkPresentationController {
             
             self.presentedView?.transform = CGAffineTransform(translationX: 0, y: translationForModal)
             
-            let scaleFactor = 1 + (translationForModal / 5000)
-            self.snapshotView?.transform = CGAffineTransform.init(scaleX: scaleFactor, y: scaleFactor)
-            let gradeFactor = 1 + (translationForModal / 7000)
-            self.gradeView.alpha = self.alpha - ((gradeFactor - 1) * 15)
+            if !secondPresentedAsStork {
+                let scaleFactor = 1 + (translationForModal / 5000)
+                self.snapshotView?.transform = CGAffineTransform.init(scaleX: scaleFactor, y: scaleFactor)
+                let gradeFactor = 1 + (translationForModal / 7000)
+                self.gradeView.alpha = self.alpha - ((gradeFactor - 1) * 15)
+            }
         } else {
             self.presentedView?.transform = CGAffineTransform.identity
         }
